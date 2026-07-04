@@ -14,9 +14,7 @@ export function ChatHeader({ persona }: ChatHeaderProps) {
           {persona.avatar}
         </div>
         <div>
-          <h2 className="text-base font-semibold text-[#f7f2eb]">
-            {persona.name}
-          </h2>
+          <h2 className="text-base font-semibold text-[#f7f2eb]">{persona.name}</h2>
           <p className="text-sm text-[#9f968d]">{persona.tagline}</p>
         </div>
       </div>

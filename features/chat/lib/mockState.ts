@@ -23,10 +23,7 @@ export const createInitialChatState = (): ChatState => ({
   messages: [initialMessages[0]],
 });
 
-export const createPersonaReply = (
-  personaId: string,
-  message: string,
-): string => {
+export const createPersonaReply = (personaId: string, message: string): string => {
   if (personaId === "piyush") {
     return `That’s a strong idea. I’d frame it around the user problem, the first step, and the simplest outcome to validate.\n\nYou said: ${message}`;
   }

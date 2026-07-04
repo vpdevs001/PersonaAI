@@ -22,10 +22,7 @@ export function ChatInput({ onSend }: ChatInputProps) {
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="border-t border-orange-500/20 bg-[#080808] p-4 sm:p-5"
-    >
+    <form onSubmit={handleSubmit} className="border-t border-orange-500/20 bg-[#080808] p-4 sm:p-5">
       <div className="flex items-end gap-3 rounded-2xl border border-orange-500/20 bg-[#111111] p-3 shadow-[inset_0_0_0_1px_rgba(255,122,26,0.04)]">
         <textarea
           value={value}

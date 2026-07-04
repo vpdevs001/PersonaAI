@@ -20,9 +20,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         }`}
       >
         <p className="whitespace-pre-wrap">{message.content}</p>
-        <p
-          className={`mt-2 text-[11px] ${isUser ? "text-black/70" : "text-[#8f857d]"}`}
-        >
+        <p className={`mt-2 text-[11px] ${isUser ? "text-black/70" : "text-[#8f857d]"}`}>
           {formatTime(message.createdAt)}
         </p>
       </div>

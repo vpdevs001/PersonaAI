@@ -7,10 +7,7 @@ interface PersonaSwitcherProps {
   onSelect: (persona: Persona) => void;
 }
 
-export function PersonaSwitcher({
-  activePersona,
-  onSelect,
-}: PersonaSwitcherProps) {
+export function PersonaSwitcher({ activePersona, onSelect }: PersonaSwitcherProps) {
   return (
     <div className="flex items-center gap-2 rounded-full border border-orange-500/20 bg-[#0d0d0d] p-1.5 shadow-[0_0_0_1px_rgba(255,122,26,0.08)]">
       {PERSONAS.map((persona) => {
