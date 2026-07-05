@@ -1,6 +1,7 @@
 "use client";
 
 import { PERSONAS, type Persona } from "@/constants";
+import { PersonaAvatar } from "./PersonaAvatar";
 
 interface PersonaSwitcherProps {
   activePersona: Persona;
@@ -9,7 +10,7 @@ interface PersonaSwitcherProps {
 
 export function PersonaSwitcher({ activePersona, onSelect }: PersonaSwitcherProps) {
   return (
-    <div className="flex items-center gap-2 rounded-full border border-orange-500/20 bg-[#0d0d0d] p-1.5 shadow-[0_0_0_1px_rgba(255,122,26,0.08)]">
+    <div className="flex items-center gap-2 rounded-2xl border border-orange-500/15 bg-[#0d0d0d] p-1.5">
       {PERSONAS.map((persona) => {
         const isActive = activePersona.id === persona.id;
 
@@ -18,13 +19,14 @@ export function PersonaSwitcher({ activePersona, onSelect }: PersonaSwitcherProp
             key={persona.id}
             type="button"
             onClick={() => onSelect(persona)}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 ${
+            className={`flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-sm font-medium transition-all duration-200 ${
               isActive
-                ? "bg-[#ff7a1a] text-black shadow-lg shadow-orange-500/20"
-                : "text-[#c8bdb2] hover:bg-[#171717] hover:text-[#f7f2eb]"
+                ? "bg-[#1c1c1c] text-[#f7f2eb] shadow-[inset_0_0_0_1px_rgba(255,122,26,0.35)]"
+                : "text-[#8f857d] hover:bg-[#141414] hover:text-[#c8bdb2]"
             }`}
           >
-            {persona.name.split(" ")[0]}
+            <PersonaAvatar persona={persona} size={28} />
+            <span className="hidden sm:inline">{persona.name.split(" ")[0]}</span>
           </button>
         );
       })}

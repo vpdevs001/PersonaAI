@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Persona AI
 
-## Getting Started
+Chat with two AI personas — Hitesh Choudhary and Piyush Garg — each with their own
+tone via a dedicated system prompt. Email/password auth, streamed replies,
+persisted per-persona conversation history, and a 20-prompts-per-day limit.
 
-First, run the development server:
+## Stack
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- Next.js 16 (App Router)
+- Postgres via Docker
+- Better Auth (email + password only)
+- `ai` + `@ai-sdk/openai` for streaming chat completions
+- OpenAI Moderation endpoint for guardrails
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **Copy env vars**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+   ```bash
+   cp .env.example .env
+   ```
 
-## Learn More
+   Fill in `OPENAI_API_KEY` and generate a real `BETTER_AUTH_SECRET`
+   (e.g. `openssl rand -hex 32`).
 
-To learn more about Next.js, take a look at the following resources:
+2. **Start Postgres**
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+   ```bash
+   docker compose up -d
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   On first boot (fresh volume), Postgres automatically runs
+   `lib/db/migrations/001_init.sql`, which creates:
+   - Better Auth's core tables (`user`, `session`, `account`, `verification`)
+   - `messages` — per-user, per-persona conversation history
+   - `daily_usage` — the 20-prompts/day counter
 
-## Deploy on Vercel
+   > If you already have an existing `pgdata` volume from before this schema
+   > existed, either run the SQL file manually against your DB, or
+   > `docker compose down -v` to start fresh (this deletes existing data).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+3. **Install deps & run**
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+   ```bash
+   npm install
+   npm run dev
+   ```
+
+   Visit http://localhost:3000 — you'll be redirected to `/login` to create
+   an account, then land on the chat UI.
+
+## Notes
+
+- **Avatars**: Persona cards use a gradient + initials by default. To use real
+  photos, drop licensed images at `public/personas/hitesh.jpg` and
+  `public/personas/piyush.jpg`, then set `photo: "/personas/hitesh.jpg"` on
+  the relevant entry in `constants/personas.ts`.
+- **System prompts**: intentionally placeholder text in
+  `features/chat/server/ai/personaPrompts.ts` — replace with the real,
+  hand-written prompts when ready.
+- **Rate limit resets**: at UTC midnight (see `DAILY_LIMIT` in
+  `features/chat/server/usage/usage.ts`).
