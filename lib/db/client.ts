@@ -1,24 +1,13 @@
-import { Pool, type QueryResultRow } from "pg";
+import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
+import * as schema from "@/lib/db/schema";
 
-const DATABASE_URL =
-  process.env.DATABASE_URL ||
-  (() => {
-    const user = process.env.POSTGRES_USER || "persona_user";
-    const pass = process.env.POSTGRES_PASSWORD || "changeme";
-    const host = process.env.POSTGRES_HOST || "localhost";
-    const port = process.env.POSTGRES_PORT || "5432";
-    const db = process.env.POSTGRES_DB || "persona_db";
-    return `postgresql://${user}:${pass}@${host}:${port}/${db}`;
-  })();
+// Raw `pg` pool — kept exported for anything that still needs a direct
+// connection (e.g. the Better Auth Drizzle adapter uses `db`, not this,
+// but a shared pool avoids opening multiple connection pools).
+export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-export const pool = new Pool({ connectionString: DATABASE_URL });
+// Drizzle instance — this is now the single query interface for the app.
+export const db = drizzle(pool, { schema });
 
-export async function query<T extends QueryResultRow = QueryResultRow>(
-  text: string,
-  params?: unknown[],
-) {
-  return pool.query<T>(text, params);
-}
-
-const db = { pool, query };
 export default db;

@@ -1,4 +1,6 @@
-import { pool } from "@/lib/db/client";
+import { and, eq, sql } from "drizzle-orm";
+import { db } from "@/lib/db/client";
+import { dailyUsage } from "@/lib/db/schema";
 
 export const DAILY_LIMIT = 20;
 
@@ -9,54 +11,62 @@ function today() {
 /**
  * Atomically checks and increments today's usage counter for a user.
  * Must be called BEFORE the AI call, and only once per accepted message.
+ *
+ * Implemented as a single upsert: `INSERT ... ON CONFLICT DO UPDATE ...
+ * WHERE count < limit`. If the row is new, it's inserted at count 1. If it
+ * exists and is under the limit, the update bumps it by 1 atomically. If
+ * it's already at the limit, the conditional update is skipped (no row is
+ * returned), so we know the request should be rejected without needing an
+ * explicit transaction + row lock.
  */
 export async function checkAndIncrementUsage(userId: string) {
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-    const day = today();
-    const selectRes = await client.query(
-      `SELECT count FROM daily_usage WHERE user_id = $1 AND day = $2 FOR UPDATE`,
-      [userId, day],
-    );
+  const day = today();
 
-    if (selectRes.rowCount === 0) {
-      await client.query(
-        `INSERT INTO daily_usage (user_id, day, count) VALUES ($1, $2, 1)`,
-        [userId, day],
-      );
-      await client.query("COMMIT");
-      return { ok: true as const, count: 1, remaining: DAILY_LIMIT - 1, limit: DAILY_LIMIT };
-    }
+  const [updated] = await db
+    .insert(dailyUsage)
+    .values({ userId, day, count: 1 })
+    .onConflictDoUpdate({
+      target: [dailyUsage.userId, dailyUsage.day],
+      set: { count: sql`${dailyUsage.count} + 1` },
+      setWhere: sql`${dailyUsage.count} < ${DAILY_LIMIT}`,
+    })
+    .returning({ count: dailyUsage.count });
 
-    const count = selectRes.rows[0].count as number;
-    if (count >= DAILY_LIMIT) {
-      await client.query("ROLLBACK");
-      return { ok: false as const, reason: "limit_exceeded", count, remaining: 0, limit: DAILY_LIMIT };
-    }
-
-    const updateRes = await client.query(
-      `UPDATE daily_usage SET count = count + 1 WHERE user_id = $1 AND day = $2 RETURNING count`,
-      [userId, day],
-    );
-    await client.query("COMMIT");
-    const newCount = updateRes.rows[0].count as number;
-    return { ok: true as const, count: newCount, remaining: DAILY_LIMIT - newCount, limit: DAILY_LIMIT };
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
+  if (updated) {
+    return {
+      ok: true as const,
+      count: updated.count,
+      remaining: DAILY_LIMIT - updated.count,
+      limit: DAILY_LIMIT,
+    };
   }
+
+  // Conflict happened but the WHERE guard blocked the update — the user is
+  // already at (or somehow over) the limit. Read the current count back for
+  // the error payload.
+  const [current] = await db
+    .select({ count: dailyUsage.count })
+    .from(dailyUsage)
+    .where(and(eq(dailyUsage.userId, userId), eq(dailyUsage.day, day)));
+
+  const count = current?.count ?? DAILY_LIMIT;
+  return {
+    ok: false as const,
+    reason: "limit_exceeded",
+    count,
+    remaining: 0,
+    limit: DAILY_LIMIT,
+  };
 }
 
 /** Read-only usage lookup — does not increment. Used to render the UI counter on load. */
 export async function getUsage(userId: string) {
   const day = today();
-  const res = await pool.query(
-    `SELECT count FROM daily_usage WHERE user_id = $1 AND day = $2`,
-    [userId, day],
-  );
-  const count = res.rowCount ? (res.rows[0].count as number) : 0;
+  const [row] = await db
+    .select({ count: dailyUsage.count })
+    .from(dailyUsage)
+    .where(and(eq(dailyUsage.userId, userId), eq(dailyUsage.day, day)));
+
+  const count = row?.count ?? 0;
   return { count, remaining: Math.max(DAILY_LIMIT - count, 0), limit: DAILY_LIMIT };
 }
