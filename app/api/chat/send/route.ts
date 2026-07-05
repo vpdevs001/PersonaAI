@@ -6,6 +6,7 @@ import { getSystemPromptForPersona } from "@/features/chat/server/ai/personaProm
 import { checkModeration } from "@/features/chat/server/moderation/moderator";
 import { checkAndIncrementUsage } from "@/features/chat/server/usage/usage";
 import { saveMessage } from "@/features/chat/server/db/history";
+import { ensureConversation, touchConversation } from "@/features/chat/server/db/conversations";
 
 export async function POST(req: Request) {
   try {
@@ -16,10 +17,17 @@ export async function POST(req: Request) {
     const userId = session.user.id;
 
     const body = await req.json();
-    const { messages, personaId } = body as { messages: UIMessage[]; personaId: string };
+    const { messages, personaId, conversationId } = body as {
+      messages: UIMessage[];
+      personaId: string;
+      conversationId: string;
+    };
 
-    if (!personaId || !Array.isArray(messages) || messages.length === 0) {
-      return Response.json({ error: "personaId and messages are required" }, { status: 400 });
+    if (!personaId || !conversationId || !Array.isArray(messages) || messages.length === 0) {
+      return Response.json(
+        { error: "conversationId, personaId and messages are required" },
+        { status: 400 },
+      );
     }
 
     const lastMessage = messages[messages.length - 1];
@@ -51,18 +59,32 @@ export async function POST(req: Request) {
       );
     }
 
-    // 3. Persist the user's message immediately (don't wait for the AI reply).
-    await saveMessage(userId, personaId, "user", lastText);
+    // 3. Make sure this conversation exists and is owned by this user —
+    // creates it (with a derived title) on the very first message. The id
+    // is client-generated so the UI can start streaming immediately
+    // without a separate "create conversation" round trip.
+    const conversation = await ensureConversation({
+      id: conversationId,
+      userId,
+      personaId,
+      firstMessage: lastText,
+    });
 
-    // 4. Stream the persona's reply.
-    const systemPrompt = getSystemPromptForPersona(personaId);
+    // 4. Persist the user's message immediately (don't wait for the AI reply).
+    await saveMessage(conversation.id, "user", lastText);
+    await touchConversation(conversation.id);
+
+    // 5. Stream the persona's reply. Always use the persona pinned to the
+    // conversation, not whatever the client happened to send.
+    const systemPrompt = getSystemPromptForPersona(conversation.personaId);
     const result = streamText({
       model: chatModel,
       system: systemPrompt,
       messages: await convertToModelMessages(messages),
       onFinish: async ({ text }) => {
         if (text.trim()) {
-          await saveMessage(userId, personaId, "assistant", text);
+          await saveMessage(conversation.id, "assistant", text);
+          await touchConversation(conversation.id);
         }
       },
     });
@@ -71,6 +93,7 @@ export async function POST(req: Request) {
       headers: {
         "x-usage-remaining": String(usage.remaining),
         "x-usage-limit": String(usage.limit),
+        "x-conversation-id": conversation.id,
       },
     });
   } catch (err) {

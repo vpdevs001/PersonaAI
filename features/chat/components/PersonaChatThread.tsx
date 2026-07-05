@@ -12,6 +12,9 @@ import { TypingIndicator } from "./TypingIndicator";
 
 interface PersonaChatThreadProps {
   persona: Persona;
+  conversationId: string;
+  /** True when this conversation hasn't been persisted yet (no messages sent). */
+  isNewConversation: boolean;
   remaining: number | null;
   limit: number;
   onAfterSend: () => void;
@@ -19,25 +22,35 @@ interface PersonaChatThreadProps {
 
 export function PersonaChatThread({
   persona,
+  conversationId,
+  isNewConversation,
   remaining,
   limit,
   onAfterSend,
 }: PersonaChatThreadProps) {
-  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [loadingHistory, setLoadingHistory] = useState(!isNewConversation);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   const { messages, sendMessage, status, setMessages, error } = useChat({
-    id: persona.id,
+    id: conversationId,
     transport: new DefaultChatTransport({
       api: "/api/chat/send",
-      body: { personaId: persona.id },
+      body: { personaId: persona.id, conversationId },
     }),
     onFinish: () => onAfterSend(),
   });
 
   useEffect(() => {
+    if (isNewConversation) {
+      // Brand new, not-yet-persisted conversation — nothing to fetch.
+      setMessages([]);
+      setLoadingHistory(false);
+      return;
+    }
+
     let cancelled = false;
-    getHistory(persona.id)
+    setLoadingHistory(true);
+    getHistory(conversationId)
       .then((history) => {
         if (!cancelled) setMessages(history);
       })
@@ -47,8 +60,15 @@ export function PersonaChatThread({
     return () => {
       cancelled = true;
     };
+    // Intentionally only [conversationId]: this component is remounted
+    // (via `key={conversationId}` in ChatWindow) whenever the active
+    // conversation changes, so this effect only needs to run once per
+    // mount. `isNewConversation` is read from its value at mount time —
+    // re-running this when it later flips to `false` (once the sidebar
+    // picks up the freshly-created conversation) would refetch history
+    // mid-conversation and flash "Loading conversation…" for no reason.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persona.id]);
+  }, [conversationId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

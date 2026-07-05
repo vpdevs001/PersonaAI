@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth/auth";
 import { getHistory } from "@/features/chat/server/db/history";
+import { getOwnedConversation } from "@/features/chat/server/db/conversations";
 
 export async function GET(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -9,12 +10,20 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const personaId = searchParams.get("personaId");
-  if (!personaId) {
-    return Response.json({ error: "personaId is required" }, { status: 400 });
+  const conversationId = searchParams.get("conversationId");
+  if (!conversationId) {
+    return Response.json({ error: "conversationId is required" }, { status: 400 });
   }
 
-  const rows = await getHistory(session.user.id, personaId);
+  const conversation = await getOwnedConversation(session.user.id, conversationId);
+  if (!conversation) {
+    // Either it doesn't exist yet (brand new, not-yet-persisted chat) or it
+    // belongs to someone else — either way, an empty thread is the right
+    // response rather than leaking which case it was.
+    return Response.json({ messages: [] });
+  }
+
+  const rows = await getHistory(conversationId);
 
   // Shape rows as AI SDK UIMessage objects so they can be dropped straight
   // into useChat's `messages` initial state.
