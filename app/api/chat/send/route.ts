@@ -1,9 +1,5 @@
 import { headers } from "next/headers";
-import {
-  streamText,
-  convertToModelMessages,
-  type UIMessage,
-} from "ai";
+import { streamText, convertToModelMessages, type UIMessage } from "ai";
 import { auth } from "@/lib/auth/auth";
 import { chatModel } from "@/features/chat/server/ai/model";
 import { getSystemPromptForPersona } from "@/features/chat/server/ai/personaPrompts";
@@ -27,10 +23,11 @@ export async function POST(req: Request) {
     }
 
     const lastMessage = messages[messages.length - 1];
-    const lastText = lastMessage.parts
-      ?.filter((p): p is { type: "text"; text: string } => p.type === "text")
-      .map((p) => p.text)
-      .join("\n") ?? "";
+    const lastText =
+      lastMessage.parts
+        ?.filter((p): p is { type: "text"; text: string } => p.type === "text")
+        .map((p) => p.text)
+        .join("\n") ?? "";
 
     if (!lastText.trim()) {
       return Response.json({ error: "Empty message" }, { status: 400 });

@@ -23,10 +23,7 @@ export async function saveMessage(
   });
 }
 
-export async function getHistory(
-  userId: string,
-  personaId: string,
-): Promise<StoredMessage[]> {
+export async function getHistory(userId: string, personaId: string): Promise<StoredMessage[]> {
   const rows = await db
     .select({
       id: messages.id,

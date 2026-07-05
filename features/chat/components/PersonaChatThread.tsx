@@ -17,7 +17,12 @@ interface PersonaChatThreadProps {
   onAfterSend: () => void;
 }
 
-export function PersonaChatThread({ persona, remaining, limit, onAfterSend }: PersonaChatThreadProps) {
+export function PersonaChatThread({
+  persona,
+  remaining,
+  limit,
+  onAfterSend,
+}: PersonaChatThreadProps) {
   const [loadingHistory, setLoadingHistory] = useState(true);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
